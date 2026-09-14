@@ -302,8 +302,9 @@ function buildSave(opts) {
 // UI (wiring del browser / localStorage — fuori dalla sezione pura)
 // ---------------------------------------------------------------------------
 
-    const STORAGE_KEY = 'data';
-    const RELOAD_DELAY_MS = 8000;
+const STORAGE_KEY = 'data';
+    const RELOAD_DELAY_MS = 500;
+    let reloading = false;
 
     function loadRaw() {
         try {
@@ -318,14 +319,55 @@ function buildSave(opts) {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
     }
 
+// Pianifica il reload; i doppi click sono ignorati (la pagina reloada comunque).
+    function scheduleReload() {
+        if (reloading) return;
+        reloading = true;
+        window.setTimeout(function () { window.location.reload(); }, RELOAD_DELAY_MS);
+    }
+
+    // Guardia per save legacy/corrotti: stats mancante = crash silenzioso sui mutatori.
+    function ensureStats(player) {
+        if (player.stats) return player.stats;
+        player.stats = {
+            pokemonOwned: 0,
+            highestPokemonLevel: 0,
+            totalPokemonLevel: 0,
+            totalGold: player.gold || 0,
+            wavesCompleted: 0,
+            highestHit: 0,
+            defeatedEnemies: 0,
+            defeatedSpecies: [],
+            appliedStuns: 0,
+            appliedSlows: 0,
+            appliedBurns: 0,
+            appliedPoisons: 0,
+            appliedCurses: 0,
+            resets: 0,
+            timePlayed: 0,
+            maxGoldPerWave: [0, null],
+            maxGoldPerTime: [0, null],
+        };
+        return player.stats;
+    }
+
     // Legge il save corrente (o ne crea uno nuovo) e applica la mutazione.
     function mutateSave(mutator) {
+        if (reloading) return;
+        reloading = true;
         let data = loadRaw();
         if (!data || !data.save || !data.save.player) data = buildSave();
-        mutator(data);
+        ensureStats(data.save.player);
+        try {
+            mutator(data);
+        } catch (err) {
+            reloading = false;
+            showBanner('Error: invalid save, no changes applied');
+            return;
+        }
         saveRaw(data);
         showBanner('Save updated. Reloading...');
-        window.setTimeout(function () { window.location.reload(); }, RELOAD_DELAY_MS);
+        scheduleReload();
     }
 
     function showBanner(text) {
@@ -520,7 +562,10 @@ function buildSave(opts) {
 
         // ---- Reset ----
         const reset = makeDetails('Reset');
-        reset.appendChild(makeButton('Reset Save (full unlock)', function () {
+reset.appendChild(makeButton('Reset Save (full unlock)', function () {
+            if (reloading) return;
+            if (!window.confirm('Destroy current save and apply full unlock?')) return;
+            reloading = true;
             const existing = loadRaw();
             const prevName = (existing && existing.save && existing.save.player && existing.save.player.name) || 'Player';
             const fresh = buildSave({ name: prevName, shiny: shiny });
