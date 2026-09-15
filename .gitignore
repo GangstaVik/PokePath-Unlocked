@@ -1,2 +1,36 @@
-# Cache degli script sorgente scaricati dal gioco
+# Node.js
+node_modules/
+dist/
+package-lock.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.swp
+*.swo
+
+# Build
+*.min.js
+*.map
+
+# Backups
+.backup_*/
+
+# Logs
+*.log
+
+# CI artifacts
+.copilot-share/
+
+# Superpowers plans (local only, not versioned)
+docs/superpowers/
+
+# PokePath: local game-source dumps and test artifacts (dev only, not shipped)
 tools/.cache/
+tools/*.js
+tools/index.html
+tools/generated-save.json
+tools/backup-pre-test-localstorage.json
